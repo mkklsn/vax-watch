@@ -19,15 +19,17 @@ namespace vaccine_watcher
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
 
-            string name = req.Query["name"];
+            string fname = req.Query["fname"];
+            string lname = req.Query["lname"];
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+            fname = fname ?? data?.fname;
+            lname = lname ?? data?.lname;
 
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
+            string responseMessage = string.IsNullOrEmpty(fname) || string.IsNullOrEmpty(fname)
+                ? "This HTTP triggered function executed successfully. Pass a fname or lname in the query strings or in the request body for a personalized response."
+                : $"Hello, {fname} {lname}. This HTTP triggered function executed successfully.";
 
             return new OkObjectResult(responseMessage);
         }
