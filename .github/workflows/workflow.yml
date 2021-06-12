@@ -44,7 +44,7 @@ jobs:
         uses: Azure/functions-container-action@v1
         id: fa
         with:
-          app-name: vaxwatchercapp
+          app-name: vaxwatcherapp
           image: vaxwatchcontainers.azurecr.io/vax-watcher:latest
       #- name: 'use the published functionapp url in upcoming steps'
       #  run: |
