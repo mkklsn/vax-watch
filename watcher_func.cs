@@ -92,17 +92,20 @@ namespace vaccine_watcher
                     msg = "Vaccine is not yet available for 30s.";
                     log.LogInformation(msg);
 
-                    await InsertUserAsync(Guid.NewGuid().ToString(), "+353", log);
+                    await InsertUserAsync("+353871231234", "+353", log);
                 }
                 return null;
             }
         }
     
-        private async Task<bool> DoesUserExistsAsync(string id, string partitionKey)
+        private async Task<bool> DoesUserExistsAsync(string id, string partitionKey, ILogger log)
         {
             var userResponse = await _container.ReadItemAsync<User>(id, new PartitionKey(partitionKey));
 
-            return userResponse.StatusCode == HttpStatusCode.NotFound;
+            log.LogInformation("Response => {@response}", userResponse);
+            log.LogInformation($"Response status code => {userResponse.StatusCode}");
+
+            return userResponse.StatusCode == HttpStatusCode.OK;
         }
 
         private async Task InsertUserAsync(string phoneNumberTo, string phoneNumberCountryCode, ILogger log)
@@ -115,7 +118,7 @@ namespace vaccine_watcher
                 CreatedDateTimeUtc = DateTime.UtcNow
             };
 
-            if (await DoesUserExistsAsync(user.Id, user.CountryCode))
+            if (await DoesUserExistsAsync(user.Id, user.CountryCode, log))
             {
                 var msg = string.Format("Item in database with id: {0} already exists\n", user.Id);
                 log.LogInformation(msg);
