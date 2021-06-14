@@ -42,7 +42,7 @@ namespace vaccine_watcher
         [FunctionName("watcher_func")]
         [Timeout("00:00:15")]
         [return: TwilioSms(AccountSidSetting = "TwilioAccountSid", AuthTokenSetting = "TwilioAuthToken")]
-        public async Task<CreateMessageOptions> RunAsync([TimerTrigger("0 0/30 * * * *", RunOnStartup = true)]TimerInfo myTimer, ILogger log)
+        public async Task<CreateMessageOptions> RunAsync([TimerTrigger("0 0/15 * * * *", RunOnStartup = true)]TimerInfo myTimer, ILogger log)
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
             log.LogInformation($"Next schedule: {myTimer.ScheduleStatus.Next}");
