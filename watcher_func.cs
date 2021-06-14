@@ -50,6 +50,16 @@ namespace vaccine_watcher
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
             log.LogInformation($"Next schedule: {myTimer.ScheduleStatus.Next}");
 
+            var phoneNumberFrom = Environment.GetEnvironmentVariable("TwilioFromPhoneNumber", EnvironmentVariableTarget.Process);
+            var phoneNumberTo = Environment.GetEnvironmentVariable("TwilioToPhoneNumber", EnvironmentVariableTarget.Process);
+            var phoneNumberCountryCode = Environment.GetEnvironmentVariable("TwilioToPhoneNumberCountryCode", EnvironmentVariableTarget.Process);
+            if (await DoesUserExistsAsync(phoneNumberTo, phoneNumberCountryCode, log))
+            {
+                var exMsg = string.Format("User in database with id: {0} already exists\n", phoneNumberTo);
+                log.LogInformation(exMsg);
+                throw new Exception(exMsg);
+            }
+
             var siteContent = string.Empty;
             using (var httpClient = new HttpClient())
             {
@@ -62,10 +72,6 @@ namespace vaccine_watcher
                 log.LogInformation("Vaccine is not yet available for 30s.");
                 return null;
             }
-
-            var phoneNumberFrom = Environment.GetEnvironmentVariable("TwilioFromPhoneNumber", EnvironmentVariableTarget.Process);
-            var phoneNumberTo = Environment.GetEnvironmentVariable("TwilioToPhoneNumber", EnvironmentVariableTarget.Process);
-            var phoneNumberCountryCode = Environment.GetEnvironmentVariable("TwilioToPhoneNumberCountryCode", EnvironmentVariableTarget.Process);
 
             await InsertUserAsync(phoneNumberTo, phoneNumberCountryCode, log);
 
@@ -104,16 +110,19 @@ namespace vaccine_watcher
             catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 log.LogInformation("User {id} does not exist.", id);
+                log.LogInformation("Operation consumed {charge} RUs.", ex.RequestCharge);
                 return false;
             }
             catch (CosmosException ex) 
             {
                 log.LogError(ex, $"Failed to read user. Status code: {ex.StatusCode} | {ex.Message}");
+                log.LogInformation("Operation consumed {charge} RUs.", ex.RequestCharge);
                 throw;
             }
 
             log.LogInformation("Response => {response}", JsonConvert.SerializeObject(userResponse));
             log.LogInformation($"Response status code => {userResponse.StatusCode}");
+            log.LogInformation("Operation consumed {charge} RUs.", userResponse.RequestCharge);
 
             return userResponse.StatusCode == HttpStatusCode.OK;
         }
@@ -128,13 +137,6 @@ namespace vaccine_watcher
                 CreatedDateTimeUtc = DateTime.UtcNow
             };
 
-            if (await DoesUserExistsAsync(user.Id, user.CountryCode, log))
-            {
-                var msg = string.Format("User in database with id: {0} already exists\n", user.Id);
-                log.LogInformation(msg);
-                throw new Exception(msg);
-            }
-
             try
             {
                 var userCreateResponse = await _container.CreateItemAsync<User>(user, new PartitionKey(user.CountryCode));
@@ -143,11 +145,13 @@ namespace vaccine_watcher
             catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
             {
                 log.LogInformation("Item in database with id: {0} already exists\n", user.Id);
+                log.LogInformation("Operation consumed {charge} RUs.", ex.RequestCharge);
                 throw;
             }
             catch (CosmosException ex) 
             {
                 log.LogError(ex, "Failed to insert user.");
+                log.LogInformation("Operation consumed {charge} RUs.", ex.RequestCharge);
                 throw;
             }
         }
