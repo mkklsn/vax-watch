@@ -6,6 +6,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Twilio.Rest.Api.V2010.Account;
 using Twilio.Types;
 
@@ -40,62 +41,57 @@ namespace vaccine_watcher
         }
         
         [FunctionName("watcher_func")]
-        [Timeout("00:00:15")]
+        [Timeout("00:00:05")]
         [return: TwilioSms(AccountSidSetting = "TwilioAccountSid", AuthTokenSetting = "TwilioAuthToken")]
-        public async Task<CreateMessageOptions> RunAsync([TimerTrigger("0 0/15 * * * *", RunOnStartup = true)]TimerInfo myTimer, ILogger log)
+        public async Task<CreateMessageOptions> RunAsync(
+            [TimerTrigger("0 0/10 * * * *", RunOnStartup = true)]TimerInfo myTimer,
+            ILogger log)
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
             log.LogInformation($"Next schedule: {myTimer.ScheduleStatus.Next}");
 
-            using (var httpClient = new HttpClient()) 
+            var siteContent = string.Empty;
+            using (var httpClient = new HttpClient())
             {
-                var response = await httpClient.GetAsync("https://vaccine.hse.ie/cohort/");
+                siteContent = await GetWebsiteContent(httpClient, "https://vaccine.hse.ie/cohort/", log);
+            }
 
-                if (!response.IsSuccessStatusCode)
-                {
-                    log.LogError($"Status code is not success => code: {response.StatusCode}");
-                    return null;
-                }
-
-                var siteContent = await response.Content.ReadAsStringAsync();
-
-                var msg = string.Empty;
-                if (siteContent.Contains("30 to 69", StringComparison.OrdinalIgnoreCase))
-                {
-                    msg = "Vaccine is now available for 30s and above!";
-                    
-                    log.LogInformation(msg);
-
-                    try
-                    {
-                        var phoneNumberFrom = Environment.GetEnvironmentVariable("TwilioFromPhoneNumber", EnvironmentVariableTarget.Process);
-                        var phoneNumberTo = Environment.GetEnvironmentVariable("TwilioToPhoneNumber", EnvironmentVariableTarget.Process);
-                        var phoneNumberCountryCode = Environment.GetEnvironmentVariable("TwilioToPhoneNumberCountryCode", EnvironmentVariableTarget.Process);
-
-                        await InsertUserAsync(phoneNumberTo, phoneNumberCountryCode, log);
-
-                        var message = new CreateMessageOptions(new PhoneNumber(phoneNumberTo))
-                        {
-                            From = new PhoneNumber(phoneNumberFrom),
-                            Body = msg
-                        };
-
-                        return message;
-                    }
-                    catch (Exception ex)
-                    {
-                        log.LogError(ex, "Exception occurred when sending sms.");
-                    }
-                }
-                else
-                {
-                    msg = "Vaccine is not yet available for 30s.";
-                    log.LogInformation(msg);
-
-                    await InsertUserAsync("+353871231234", "+353", log);
-                }
+            var has30s = siteContent.Contains("30 to 69", StringComparison.OrdinalIgnoreCase);
+            if (!has30s) 
+            {
+                log.LogInformation("Vaccine is not yet available for 30s.");
                 return null;
             }
+
+            var phoneNumberFrom = Environment.GetEnvironmentVariable("TwilioFromPhoneNumber", EnvironmentVariableTarget.Process);
+            var phoneNumberTo = Environment.GetEnvironmentVariable("TwilioToPhoneNumber", EnvironmentVariableTarget.Process);
+            var phoneNumberCountryCode = Environment.GetEnvironmentVariable("TwilioToPhoneNumberCountryCode", EnvironmentVariableTarget.Process);
+
+            await InsertUserAsync(phoneNumberTo, phoneNumberCountryCode, log);
+
+            var msg = "Vaccine is now available for 30s and above!";
+            log.LogInformation(msg);
+
+            var sms = new CreateMessageOptions(new PhoneNumber(phoneNumberTo))
+            {
+                From = new PhoneNumber(phoneNumberFrom),
+                Body = msg
+            };
+
+            return sms;
+        }
+
+        private async Task<string> GetWebsiteContent(HttpClient httpClient, string url, ILogger log)
+        {
+            var response = await httpClient.GetAsync("https://vaccine.hse.ie/cohort/");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                log.LogError($"Status code is not success => code: {response.StatusCode}");
+                return null;
+            }
+
+            return await response.Content.ReadAsStringAsync();
         }
     
         private async Task<bool> DoesUserExistsAsync(string id, string partitionKey, ILogger log)
@@ -116,7 +112,7 @@ namespace vaccine_watcher
                 throw;
             }
 
-            log.LogInformation("Response => {@response}", userResponse);
+            log.LogInformation("Response => {response}", JsonConvert.SerializeObject(userResponse));
             log.LogInformation($"Response status code => {userResponse.StatusCode}");
 
             return userResponse.StatusCode == HttpStatusCode.OK;
