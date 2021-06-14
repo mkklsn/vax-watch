@@ -12,7 +12,7 @@ namespace vaccine_watcher
     {
         public override void Configure(IFunctionsHostBuilder builder)
         {
-            var config = (IConfiguration)builder.Services.First(d => d.ServiceType == typeof(IConfiguration)).ImplementationInstance;
+            var config = builder.GetContext().Configuration;
 
             builder.Services.AddSingleton((s) =>
             {
