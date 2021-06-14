@@ -105,9 +105,13 @@ namespace vaccine_watcher
             {
                 userResponse = await _container.ReadItemAsync<User>(id, new PartitionKey(partitionKey));
             }
+            catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                log.LogInformation("User {id} does not exist.", id);
+                return false;
+            }
             catch (CosmosException ex) 
             {
-                log.LogInformation("Response => {@response}", userResponse);
                 log.LogError(ex, $"Failed to read user. Status code: {ex.StatusCode} | {ex.Message}");
                 throw;
             }
@@ -130,7 +134,7 @@ namespace vaccine_watcher
 
             if (await DoesUserExistsAsync(user.Id, user.CountryCode, log))
             {
-                var msg = string.Format("Item in database with id: {0} already exists\n", user.Id);
+                var msg = string.Format("User in database with id: {0} already exists\n", user.Id);
                 log.LogInformation(msg);
                 throw new Exception(msg);
             }
