@@ -100,7 +100,17 @@ namespace vaccine_watcher
     
         private async Task<bool> DoesUserExistsAsync(string id, string partitionKey, ILogger log)
         {
-            var userResponse = await _container.ReadItemAsync<User>(id, new PartitionKey(partitionKey));
+            ItemResponse<User> userResponse = null;
+            try 
+            {
+                userResponse = await _container.ReadItemAsync<User>(id, new PartitionKey(partitionKey));
+            }
+            catch (CosmosException ex) 
+            {
+                log.LogInformation("Response => {@response}", userResponse);
+                log.LogError(ex, $"Failed to read user. Status code: {ex.StatusCode} | {ex.Message}");
+                throw;
+            }
 
             log.LogInformation("Response => {@response}", userResponse);
             log.LogInformation($"Response status code => {userResponse.StatusCode}");
