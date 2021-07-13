@@ -89,7 +89,7 @@ namespace vaccine_watcher
 
         private async Task<string> GetWebsiteContent(HttpClient httpClient, string url, ILogger log)
         {
-            var response = await httpClient.GetAsync("https://vaccine.hse.ie/cohort/");
+            var response = await httpClient.GetAsync(url);
 
             if (!response.IsSuccessStatusCode)
             {
