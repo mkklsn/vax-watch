@@ -44,7 +44,7 @@ namespace vaccine_watcher
         [Timeout("00:00:05")]
         [return: TwilioSms(AccountSidSetting = "TwilioAccountSid", AuthTokenSetting = "TwilioAuthToken")]
         public async Task<CreateMessageOptions> RunAsync(
-            [TimerTrigger("0 */3 * * *")]TimerInfo myTimer,
+            [TimerTrigger("*/10 * * * *")]TimerInfo myTimer,
             ILogger log)
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
@@ -67,15 +67,15 @@ namespace vaccine_watcher
             }
 
             var has30s = siteContent.Contains("30 to 69", StringComparison.OrdinalIgnoreCase);
-            if (!has30s) 
+            if (has30s)
             {
-                log.LogInformation("Vaccine is not yet available for 30s.");
+                log.LogInformation("Vaccine is not yet available for 25+.");
                 return null;
             }
 
             await InsertUserAsync(phoneNumberTo, phoneNumberCountryCode, log);
 
-            var msg = "Vaccine is now available for 30s and above!";
+            var msg = "Vaccine is now available for 25+!";
             log.LogInformation(msg);
 
             var sms = new CreateMessageOptions(new PhoneNumber(phoneNumberTo))
